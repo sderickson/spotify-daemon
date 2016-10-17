@@ -4,6 +4,9 @@ var wrap = require('co-express');
 var request = require('request');
 var Promise = require('bluebird');
 Promise.promisifyAll(request);
+var mongoose = require('mongoose');
+var session = require('express-session');
+var MongoStore = require('connect-mongo')(session);
 
 REDIRECT_URI = 'http://localhost:3001/api/auth-spotify';
 CLIENT_ID = '.';
@@ -42,3 +45,22 @@ app.get('/api/auth-spotify', wrap(function* (req, res) {
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!');
 });
+
+mongoUrl = 'mongodb://localhost:27017/spotify-daemon'
+mongoose.connect(mongoUrl);
+app.use(session({
+  secret: 'shh',
+  store: new MongoStore({mongooseConnection: mongoose.connection}),
+  resave: false,
+  saveUninitialized: false
+}));
+
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function() {
+  console.log('connected to mongodb');
+});
+
+// Don't use Users. Just store tokens and associate the sessions with them.
+
+
