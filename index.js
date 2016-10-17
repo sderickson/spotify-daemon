@@ -8,6 +8,26 @@ var mongoose = require('mongoose');
 var session = require('express-session');
 var MongoStore = require('connect-mongo')(session);
 
+
+mongoUrl = 'mongodb://localhost:27017/spotify-daemon'
+mongoose.connect(mongoUrl);
+app.use(session({
+  secret: 'shh',
+  store: new MongoStore({mongooseConnection: mongoose.connection}),
+  resave: false,
+  saveUninitialized: false
+}));
+
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function() {
+  console.log('connected to mongodb');
+});
+
+// Don't use Users. Just store tokens and associate the sessions with them.
+
+
+
 REDIRECT_URI = 'http://localhost:3001/api/auth-spotify';
 CLIENT_ID = '.';
 CLIENT_SECRET = '.';
@@ -39,28 +59,19 @@ app.get('/api/auth-spotify', wrap(function* (req, res) {
   }
   tokenRes = yield request.postAsync({url, form, auth, json: true});
   console.log('token res', JSON.stringify(tokenRes.body))
+  req.session.accessToken = tokenRes.body.access_token;
+  console.log('set req?', req.session.accessToken);
   res.send(tokenRes.body)
+}));
+
+app.get('/spotify-api', wrap(function* (req, res) {
+  console.log(req.session.accessToken)
+  res.send({})
 }));
 
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!');
 });
 
-mongoUrl = 'mongodb://localhost:27017/spotify-daemon'
-mongoose.connect(mongoUrl);
-app.use(session({
-  secret: 'shh',
-  store: new MongoStore({mongooseConnection: mongoose.connection}),
-  resave: false,
-  saveUninitialized: false
-}));
-
-var db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', function() {
-  console.log('connected to mongodb');
-});
-
-// Don't use Users. Just store tokens and associate the sessions with them.
 
 
