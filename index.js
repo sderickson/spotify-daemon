@@ -30,8 +30,8 @@ db.once('open', function() {
 
 
 REDIRECT_URI = 'http://localhost:3001/api/auth-spotify';
-CLIENT_ID = '.';
-CLIENT_SECRET = '.';
+CLIENT_ID = process.env.SPOTIFY_DAEMON_CLIENT_ID;
+CLIENT_SECRET = process.env.SPOTIFY_DAEMON_CLIENT_SECRET;
 
 app.get('/api/begin-spotify-oauth', wrap(function* (req, res) {
   redirect_uri = encodeURIComponent(REDIRECT_URI);

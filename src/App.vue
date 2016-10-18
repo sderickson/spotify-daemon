@@ -19,6 +19,9 @@
       <a href="https://github.com/vuejs/vue-router/" target="_blank">vue-router</a> for routing and
       <a href="https://github.com/vuejs/vuex/" target="_blank">vuex</a> for state management.
     </p>
+    <a href="http://localhost:3001/api/begin-spotify-oauth">
+      Link up with Spotify
+    </a>
   </div>
 </template>
 
