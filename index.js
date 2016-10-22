@@ -10,10 +10,18 @@ var MongoStore = require('connect-mongo')(session);
 var _ = require('lodash');
 
 
-mongoUrl = 'mongodb://localhost:27017/spotify-daemon'
+app.use(express.static('./dist'))
+var isProduction = process.env.SPOTIFY_DAEMON_ENV === 'prod';
+
+MONGO_HOST = process.env.SPOTIFY_DAEMON_MONGO_HOST || 'localhost';
+MONGO_PORT = process.env.SPOTIFY_DAEMON_MONGO_PORT || '27017';
+MONGO_DB = process.env.SPOTIFY_DAEMON_MONGO_DB || 'spotify-daemon'
+
+mongoUrl = `mongodb://${MONGO_HOST}:${MONGO_HOST}/${MONGO_DB}`
 mongoose.connect(mongoUrl);
+
 app.use(session({
-  secret: 'shh',
+  secret: process.env.SPOTIFY_DAEMON_SESSION_SECRET || 'shh',
   store: new MongoStore({mongooseConnection: mongoose.connection}),
   resave: false,
   saveUninitialized: false
@@ -103,9 +111,9 @@ app.get('/api/random-alarm', wrap(function* (req, res) {
   res.json(_.pick(randomAlbumResponse.body.items[0].album, 'name', 'label', 'popularity', 'artists'))
 }))
 
-app.listen(3001, function () {
-  console.log('Spotify Daemon listening on port 3001!');
+port = process.env.SPOTIFY_DAEMON_PORT || 3001;
+app.listen(port, function () {
+  console.log(`Spotify Daemon listening on port ${port}!`);
 });
-
 
 
