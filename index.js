@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var wrap = require('co-express');
+var co = require('co');
 var request = require('request');
 var Promise = require('bluebird');
 Promise.promisifyAll(request);
@@ -32,6 +33,34 @@ var UserSchema = new mongoose.Schema({
     expires: String
   }
 })
+
+UserSchema.method('refreshAuth', co.wrap(function*() {
+  expiresSoon = this.get('spotifyAuth.expires') < moment().add(1, 'minute').toISOString()
+  if(!expiresSoon) { return }
+  code = this.get('spotifyAuth.refreshToken')
+  url = 'https://accounts.spotify.com/api/token';
+  auth = {
+    user: CLIENT_ID,
+    pass: CLIENT_SECRET,
+  }
+  form = {
+    grant_type: 'refresh_token',
+    refresh_token: this.get('spotifyAuth.refreshToken')
+  }
+  tokenRes = yield request.postAsync({url, form, auth, json: true});
+  if(tokenRes.statusCode >= 400) {
+    throw new Error('Token could not be refreshed.')
+  }
+  this.set('spotifyAuth', {
+    accessToken: tokenRes.body.access_token,
+    refreshToken: tokenRes.body.refresh_token || this.get('spotifyAuth.refreshToken'),
+    scope: tokenRes.body.scope,
+    expires: moment().add(tokenRes.body.expires_in, 'seconds').toISOString(),
+    created: new Date().toISOString()
+  })
+  yield this.save()
+}))
+
 User = mongoose.model('User', UserSchema);
 
 app.use(session({
@@ -97,7 +126,7 @@ app.get('/api/auth-spotify', wrap(function* (req, res) {
     accessToken: tokenRes.body.access_token,
     refreshToken: tokenRes.body.refresh_token,
     scope: tokenRes.body.scope,
-    expires: moment().add(tokenRes.body.expiresIn, 'seconds').toISOString(),
+    expires: moment().add(tokenRes.body.expires_in, 'seconds').toISOString(),
     created: new Date().toISOString()
   })
   yield user.save()
@@ -154,6 +183,23 @@ port = process.env.SPOTIFY_DAEMON_PORT || 3001;
 app.listen(port, function () {
   console.log(`Spotify Daemon listening on port ${port}!`);
 });
+
+sleep = function(time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+
+co(function*() {
+  while(true) {
+    try {
+      var user = yield User.findOne({'spotifyUser.id': 'sderickson'})
+      yield user.refreshAuth()
+    }
+    catch(e) {
+      console.log('Threw error trying to update alarm.', e)
+    }
+    yield sleep(1000);
+  }
+})
 
 
 
