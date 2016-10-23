@@ -132,7 +132,7 @@ app.get('/api/auth-spotify', wrap(function* (req, res) {
   yield user.save()
 
   req.session.userId = user.id;
-  res.send(tokenRes.body)
+  res.redirect('/');
 }));
 
 app.use('/api/*', wrap(function* (req, res, next) {
@@ -142,6 +142,15 @@ app.use('/api/*', wrap(function* (req, res, next) {
   }
   next()
 }))
+
+app.get('/api/me', function (req, res) {
+  if(req.user) {
+    res.send(_.omit(req.user.toObject(), 'spotifyAuth'))
+  }
+  else {
+    res.send({})
+  }
+})
 
 app.get('/api/alarm-tracks', wrap(function* (req, res) {
   playlist_id = '5hJleJv9tSNik6LKg0vaLB';
@@ -188,9 +197,9 @@ setRandomAlarm = function* (user) {
   return randomAlbumResponse.body
 }
 
-app.get('/api/random-alarm', wrap(function* (req, res) {
+app.post('/api/random-alarm', wrap(function* (req, res) {
   randomAlbumResponseBody = yield setRandomAlarm(req.user)
-  res.json(_.pick(randomAlbumResponseBody.items[0].album, 'name', 'label', 'popularity', 'artists'))
+  res.json(randomAlbumResponseBody.items[0].album)
 }))
 
 port = process.env.SPOTIFY_DAEMON_PORT || 3001;

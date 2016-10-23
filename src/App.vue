@@ -1,36 +1,81 @@
 <template>
   <div id="app">
-    <img class="logo" src="./assets/logo.png">
-    <hello></hello>
-    <p>
-      Welcome to your Vue.js app!
-    </p>
-    <p>
-      To get a better understanding of how this boilerplate works, check out
-      <a href="http://vuejs-templates.github.io/webpack" target="_blank">its documentation</a>.
-      It is also recommended to go through the docs for
-      <a href="http://webpack.github.io/" target="_blank">Webpack</a> and
-      <a href="http://vuejs.github.io/vue-loader/" target="_blank">vue-loader</a>.
-      If you have any issues with the setup, please file an issue at this boilerplate's
-      <a href="https://github.com/vuejs-templates/webpack" target="_blank">repository</a>.
-    </p>
-    <p>
-      You may also want to checkout
-      <a href="https://github.com/vuejs/vue-router/" target="_blank">vue-router</a> for routing and
-      <a href="https://github.com/vuejs/vuex/" target="_blank">vuex</a> for state management.
-    </p>
-    <a href="http://localhost:3001/api/begin-spotify-oauth">
-      Link up with Spotify
-    </a>
+    <div v-if="loading">
+      Loading
+    </div>
+    <div v-else>
+      <div v-if="loggedIn">
+        <button :disabled="randomizingAlbum" v-on:click="setRandomAlarm">Set Random Alarm</button>
+        <div>
+          <h1>{{ album.name }}</h1>
+          <h2>{{ album.artist }}</h2>
+          <img :src="album.imageUrl" width="150" />
+        </div>
+      </div>
+      <div v-else>
+        <a href="/api/begin-spotify-oauth">
+          Log In
+        </a>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import Hello from './components/Hello'
+import _ from 'lodash'
+
+/* global fetch */
 
 export default {
-  components: {
-    Hello
+  data: function () {
+    return {
+      loading: true,
+      loggedIn: false,
+      randomizingAlbum: false,
+      album: {
+        imageUrl: null,
+        name: null,
+        artist: null
+      }
+    }
+  },
+  created: function () {
+    fetch('/api/me', { credentials: 'include' })
+    .then((res) => res.json())
+    .then((json) => {
+      this.loading = false
+      this.loggedIn = Boolean(json._id)
+      if (this.loggedIn) {
+        return fetch('/api/alarm-tracks', { credentials: 'include' })
+        .then((res) => res.json())
+        .then((json) => {
+          var track = _.first(json.items).track
+          var images = _.sortBy(track.album.images, (image) => image.width)
+          var image = _.last(images)
+          this.album.imageUrl = image.url
+          this.album.name = track.album.name
+          var artist = _.first(track.artists)
+          this.album.artist = artist.name
+        })
+      }
+    })
+  },
+  methods: {
+    setRandomAlarm: function () {
+      this.randomizingAlbum = true
+      fetch('/api/random-alarm', { credentials: 'include', method: 'POST' })
+        .then((res) => res.json())
+        .then((json) => {
+          this.randomizingAlbum = false
+          var images = _.sortBy(json.images, (image) => image.width)
+          var image = _.last(images)
+          this.album.imageUrl = image.url
+          this.album.name = json.name
+          var artist = _.first(json.artists)
+          this.album.artist = artist.name
+        })
+    }
   }
 }
 </script>
