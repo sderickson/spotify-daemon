@@ -9,7 +9,7 @@ var mongoose = require('mongoose');
 var session = require('express-session');
 var MongoStore = require('connect-mongo')(session);
 var _ = require('lodash');
-var moment = require('moment');
+var moment = require('moment-timezone');
 
 app.use(express.static('./dist'))
 var isProduction = process.env.SPOTIFY_DAEMON_ENV === 'prod';
@@ -36,7 +36,7 @@ var UserSchema = new mongoose.Schema({
 
 UserSchema.method('refreshAuth', co.wrap(function*() {
   expiresSoon = this.get('spotifyAuth.expires') < moment().add(1, 'minute').toISOString()
-  if(!expiresSoon) { return }
+  if(!expiresSoon) { return Promise.resolve() }
   code = this.get('spotifyAuth.refreshToken')
   url = 'https://accounts.spotify.com/api/token';
   auth = {
@@ -138,6 +138,7 @@ app.get('/api/auth-spotify', wrap(function* (req, res) {
 app.use('/api/*', wrap(function* (req, res, next) {
   if(req.session.userId) {
     req.user = yield User.findById(req.session.userId)
+    yield req.user.refreshAuth()
   }
   next()
 }))
@@ -153,30 +154,43 @@ app.get('/api/alarm-tracks', wrap(function* (req, res) {
   res.json(playlistResponse.body)
 }));
 
-app.get('/api/random-alarm', wrap(function* (req, res) {
+setRandomAlarm = function* (user) {
   // Find out how many albums I have
   url = 'https://api.spotify.com/v1/me/albums'
   qs = { limit: 1 }
   headers = {
-    'Authorization': `Bearer ${req.user.get('spotifyAuth.accessToken')}`
+    'Authorization': `Bearer ${user.get('spotifyAuth.accessToken')}`
   }
   numAlbumsResponse = yield request.getAsync({url, headers, qs, json: true})
+  if(numAlbumsResponse.statusCode >= 400)
+    throw new Error('Could not get number of albums: ' + JSON.stringify(numAlbumsResponse.body, null, '\t'))
+
   total = numAlbumsResponse.body.total
 
   // Pick a random one, fetch it
   index = _.random(0, total-1)
   qs = { limit: 1, offset: index }
   randomAlbumResponse = yield request.getAsync({url, headers, qs, json: true})
+  if(randomAlbumResponse.statusCode >= 400)
+    throw new Error('Could not fetch random album: ' + JSON.stringify(randomAlbumResponse.body, null, '\t'))
 
   // Replace my "Alarm" playlist with the saved tracks in that album
   playlist_id = '5hJleJv9tSNik6LKg0vaLB';
   user_id = 'sderickson';
   url = `https://api.spotify.com/v1/users/${user_id}/playlists/${playlist_id}/tracks`
-  json = {
-    uris: _.map(randomAlbumResponse.body.items[0].album.tracks.items, (item) => 'spotify:track:'+item.id )
+    json = {
+      uris: _.map(randomAlbumResponse.body.items[0].album.tracks.items, (item) => 'spotify:track:'+item.id )
   }
   setTracksResponse = yield request.putAsync({url, json, headers})
-  res.json(_.pick(randomAlbumResponse.body.items[0].album, 'name', 'label', 'popularity', 'artists'))
+  if(setTracksResponse.statusCode >= 400)
+    throw new Error('Could not set alarm playlist tracks: ' + JSON.stringify(setTracksResponse.body, null, '\t'))
+
+  return randomAlbumResponse.body
+}
+
+app.get('/api/random-alarm', wrap(function* (req, res) {
+  randomAlbumResponseBody = yield setRandomAlarm(req.user)
+  res.json(_.pick(randomAlbumResponseBody.items[0].album, 'name', 'label', 'popularity', 'artists'))
 }))
 
 port = process.env.SPOTIFY_DAEMON_PORT || 3001;
@@ -184,21 +198,30 @@ app.listen(port, function () {
   console.log(`Spotify Daemon listening on port ${port}!`);
 });
 
-sleep = function(time) {
-  return new Promise((resolve) => setTimeout(resolve, time));
+sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
+sleepUntil = (momentInstance) => {
+  return sleep(momentInstance.diff(moment()))
 }
 
 co(function*() {
   while(true) {
     try {
+      nextAlarmReset = moment.tz("America/Los_Angeles")
+      if (nextAlarmReset.hour() > 12) { nextAlarmReset.add(1, 'day') }
+      nextAlarmReset.set({hour: 12, minute:0, second:0})
+      yield sleepUntil(nextAlarmReset);
       var user = yield User.findOne({'spotifyUser.id': 'sderickson'})
       yield user.refreshAuth()
+      yield setRandomAlarm(user);
     }
     catch(e) {
       console.log('Threw error trying to update alarm.', e)
     }
     yield sleep(1000);
   }
+})
+.catch((e) => {
+  console.log('e!', e)
 })
 
 
