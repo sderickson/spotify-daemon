@@ -207,17 +207,17 @@ co(function*() {
   while(true) {
     try {
       nextAlarmReset = moment.tz("America/Los_Angeles")
-      if (nextAlarmReset.hour() > 12) { nextAlarmReset.add(1, 'day') }
+      if (nextAlarmReset.hour() >= 12) { nextAlarmReset.add(1, 'day') }
       nextAlarmReset.set({hour: 12, minute:0, second:0})
       yield sleepUntil(nextAlarmReset);
       var user = yield User.findOne({'spotifyUser.id': 'sderickson'})
       yield user.refreshAuth()
-      yield setRandomAlarm(user);
+      randomAlbumResponseBody = yield setRandomAlarm(user);
+      console.log(`Randomly selected: ${randomAlbumResponseBody.items[0].album.name}`)
     }
     catch(e) {
       console.log('Threw error trying to update alarm.', e)
     }
-    yield sleep(1000);
   }
 })
 .catch((e) => {
