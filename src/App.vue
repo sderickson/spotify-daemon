@@ -5,6 +5,8 @@
     </div>
     <div v-else>
       <div v-if="loggedIn">
+        <button v-on:click="logOut">Log out</button>
+        <hr />
         <button :disabled="randomizingAlbum" v-on:click="setRandomAlarm">Set Random Alarm</button>
         <div>
           <h1>{{ album.name }}</h1>
@@ -74,6 +76,10 @@ export default {
           var artist = _.first(json.artists)
           this.album.artist = artist.name
         })
+    },
+    logOut: function () {
+      fetch('/api/logout', { credentials: 'include', method: 'POST' })
+        .then(() => { document.location.reload() })
     }
   }
 }

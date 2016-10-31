@@ -152,6 +152,10 @@ app.get('/api/me', function (req, res) {
   }
 })
 
+app.post('/api/logout', function (req, res) {
+  req.session.destroy((err) => { res.send({}); })
+});
+
 app.get('/api/alarm-tracks', wrap(function* (req, res) {
   playlist_id = '5hJleJv9tSNik6LKg0vaLB';
   user_id = 'sderickson';
