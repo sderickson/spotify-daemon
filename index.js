@@ -180,30 +180,41 @@ setRandomAlarm = function* (user) {
 
   total = numAlbumsResponse.body.total
 
-  // Pick a random one, fetch it
-  index = _.random(0, total-1)
-  qs = { limit: 1, offset: index }
-  randomAlbumResponse = yield request.getAsync({url, headers, qs, json: true})
-  if(randomAlbumResponse.statusCode >= 400)
-    throw new Error('Could not fetch random album: ' + JSON.stringify(randomAlbumResponse.body, null, '\t'))
+  // Pick a random albums until we have at least an hour of music
+  trackUris = []
+  albumIndices = _.shuffle(_.range(total))
+  totalLength = 0
+  randomAlbumResponses = []
+  while (true) {
+    index = albumIndices.pop()
+    qs = { limit: 1, offset: index }
+    randomAlbumResponse = yield request.getAsync({url, headers, qs, json: true})
+    if(randomAlbumResponse.statusCode >= 400)
+      throw new Error('Could not fetch random album: ' + JSON.stringify(randomAlbumResponse.body, null, '\t'))
+    tracks = randomAlbumResponse.body.items[0].album.tracks.items
+    trackUris = trackUris.concat(_.map(tracks, (item) => 'spotify:track:'+item.id ))
+    _.forEach(tracks, (track) => totalLength += track.duration_ms)
+    if(totalLength/1000/60 > 90) { break }
+    randomAlbumResponses.push(randomAlbumResponse.body)
+  }
 
   // Replace my "Alarm" playlist with the saved tracks in that album
   playlist_id = '5hJleJv9tSNik6LKg0vaLB';
   user_id = 'sderickson';
   url = `https://api.spotify.com/v1/users/${user_id}/playlists/${playlist_id}/tracks`
     json = {
-      uris: _.map(randomAlbumResponse.body.items[0].album.tracks.items, (item) => 'spotify:track:'+item.id )
+      uris: trackUris
   }
   setTracksResponse = yield request.putAsync({url, json, headers})
   if(setTracksResponse.statusCode >= 400)
     throw new Error('Could not set alarm playlist tracks: ' + JSON.stringify(setTracksResponse.body, null, '\t'))
 
-  return randomAlbumResponse.body
+  return randomAlbumResponses
 }
 
 app.post('/api/random-alarm', wrap(function* (req, res) {
-  randomAlbumResponseBody = yield setRandomAlarm(req.user)
-  res.json(randomAlbumResponseBody.items[0].album)
+  yield setRandomAlarm(req.user)
+  res.json({})
 }))
 
 port = process.env.SPOTIFY_DAEMON_PORT || 3001;

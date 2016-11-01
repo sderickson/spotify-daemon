@@ -8,7 +8,10 @@
         <button v-on:click="logOut">Log out</button>
         <hr />
         <button :disabled="randomizingAlbum" v-on:click="setRandomAlarm">Set Random Alarm</button>
-        <div>
+        <table >
+          <track-row v-for="track in tracks" :album="track.album" :artists="track.artists" :duration_ms="track.duration_ms" :name="track.name"></track-row>
+        </table>
+        <div v-for="album in albums">
           <h1>{{ album.name }}</h1>
           <h2>{{ album.artist }}</h2>
           <img :src="album.imageUrl" width="150" />
@@ -25,6 +28,7 @@
 
 <script>
 import _ from 'lodash'
+import TrackRow from 'components/TrackRow'
 
 /* global fetch */
 
@@ -34,84 +38,48 @@ export default {
       loading: true,
       loggedIn: false,
       randomizingAlbum: false,
-      album: {
-        imageUrl: null,
-        name: null,
-        artist: null
-      }
+      tracks: []
     }
   },
+
   created: function () {
+    // Check if logged, and if so, load tracks
+    this.loading = true
     fetch('/api/me', { credentials: 'include' })
-    .then((res) => res.json())
-    .then((json) => {
-      this.loading = false
-      this.loggedIn = Boolean(json._id)
-      if (this.loggedIn) {
-        return fetch('/api/alarm-tracks', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((json) => {
+        this.loggedIn = Boolean(json._id)
+        if (this.loggedIn) {
+          return this.loadTracks()
+        }
+      })
+      .then(() => { this.loading = false })
+  },
+
+  methods: {
+    loadTracks: function () {
+      return fetch('/api/alarm-tracks', { credentials: 'include' })
         .then((res) => res.json())
         .then((json) => {
-          var track = _.first(json.items).track
-          var images = _.sortBy(track.album.images, (image) => image.width)
-          var image = _.last(images)
-          this.album.imageUrl = image.url
-          this.album.name = track.album.name
-          var artist = _.first(track.artists)
-          this.album.artist = artist.name
+          this.tracks = _.map(json.items, (item) => item.track)
         })
-      }
-    })
-  },
-  methods: {
+    },
     setRandomAlarm: function () {
       this.randomizingAlbum = true
       fetch('/api/random-alarm', { credentials: 'include', method: 'POST' })
-        .then((res) => res.json())
-        .then((json) => {
-          this.randomizingAlbum = false
-          var images = _.sortBy(json.images, (image) => image.width)
-          var image = _.last(images)
-          this.album.imageUrl = image.url
-          this.album.name = json.name
-          var artist = _.first(json.artists)
-          this.album.artist = artist.name
-        })
+        .then(this.loadTracks)
+        .then(() => { this.randomizingAlbum = false })
     },
     logOut: function () {
       fetch('/api/logout', { credentials: 'include', method: 'POST' })
         .then(() => { document.location.reload() })
     }
+  },
+  components: {
+    'track-row': TrackRow
   }
 }
 </script>
 
 <style lang="scss">
-html {
-  height: 100%;
-}
-
-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-#app {
-  color: #2c3e50;
-  margin-top: -100px;
-  max-width: 600px;
-  font-family: Source Sans Pro, Helvetica, sans-serif;
-  text-align: center;
-}
-
-#app a {
-  color: #42b983;
-  text-decoration: none;
-}
-
-.logo {
-  width: 100px;
-  height: 100px
-}
 </style>
