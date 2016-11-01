@@ -11,11 +11,6 @@
         <table >
           <track-row v-for="track in tracks" :album="track.album" :artists="track.artists" :duration_ms="track.duration_ms" :name="track.name"></track-row>
         </table>
-        <div v-for="album in albums">
-          <h1>{{ album.name }}</h1>
-          <h2>{{ album.artist }}</h2>
-          <img :src="album.imageUrl" width="150" />
-        </div>
       </div>
       <div v-else>
         <a href="/api/begin-spotify-oauth">
