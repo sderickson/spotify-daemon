@@ -24,8 +24,7 @@
 <script>
 import _ from 'lodash'
 import TrackRow from 'components/TrackRow'
-
-/* global fetch */
+import api from './api'
 
 export default {
   data: function () {
@@ -40,34 +39,29 @@ export default {
   created: function () {
     // Check if logged, and if so, load tracks
     this.loading = true
-    fetch('/api/me', { credentials: 'include' })
-      .then((res) => res.json())
-      .then((json) => {
-        this.loggedIn = Boolean(json._id)
-        if (this.loggedIn) {
-          return this.loadTracks()
-        }
-      })
-      .then(() => { this.loading = false })
+    api.getMe().then((json) => {
+      this.loggedIn = Boolean(json._id)
+      if (this.loggedIn) {
+        return this.loadTracks()
+      }
+    })
+    .then(() => { this.loading = false })
   },
 
   methods: {
     loadTracks: function () {
-      return fetch('/api/alarm-tracks', { credentials: 'include' })
-        .then((res) => res.json())
-        .then((json) => {
-          this.tracks = _.map(json.items, (item) => item.track)
-        })
+      return api.getAlarmTracks().then((json) => {
+        this.tracks = _.map(json.items, (item) => item.track)
+      })
     },
     setRandomAlarm: function () {
       this.randomizingAlbum = true
-      fetch('/api/random-alarm', { credentials: 'include', method: 'POST' })
+      api.setRandomAlarm()
         .then(this.loadTracks)
         .then(() => { this.randomizingAlbum = false })
     },
     logOut: function () {
-      fetch('/api/logout', { credentials: 'include', method: 'POST' })
-        .then(() => { document.location.reload() })
+      api.logout().then(() => { document.location.reload() })
     }
   },
   components: {

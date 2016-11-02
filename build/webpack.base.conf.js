@@ -70,6 +70,9 @@ module.exports = {
           name: utils.assetsPath('fonts/[name].[hash:7].[ext]')
         }
       }
+    ],
+    noParse: [
+      /\/sinon.js/
     ]
   },
   eslint: {
