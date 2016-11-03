@@ -39,7 +39,7 @@ export default {
   created: function () {
     // Check if logged, and if so, load tracks
     this.loading = true
-    api.getMe().then((json) => {
+    this.load = api.getMe().then((json) => {
       this.loggedIn = Boolean(json._id)
       if (this.loggedIn) {
         return this.loadTracks()

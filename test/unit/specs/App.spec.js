@@ -6,10 +6,15 @@ import api from 'src/api'
 describe('App.vue', () => {
   describe('created', () => {
     it('should load tracks', () => {
-      var getMe = sinon.spy(api, 'getMe')
-      new Vue(App).$mount()
-      getMe.restore()
-      sinon.assert.calledOnce(getMe)
+      sinon.stub(api, 'getMe').returns(Promise.resolve({ _id: '1234' }))
+      sinon.stub(api, 'getAlarmTracks').returns(Promise.resolve({ items: [] }))
+      let vm = new Vue(App).$mount()
+      return vm.load.then(() => {
+        sinon.assert.calledOnce(api.getMe)
+        sinon.assert.calledOnce(api.getAlarmTracks)
+        api.getMe.restore()
+        api.getAlarmTracks.restore()
+      })
     })
   })
 })
